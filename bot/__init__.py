@@ -1,7 +1,6 @@
-from logging import getLogger, FileHandler, StreamHandler, INFO, basicConfig as log_Config, error as log_error, info as log_info, warning as log_warning
+from logging import getLogger, FileHandler, StreamHandler, INFO, basicConfig, error as log_error, info as log_info, warning as log_warning
 from socket import setdefaulttimeout
 from faulthandler import enable as faulthandler_enable
-
 from telegram.ext import Updater as tgUpdater
 from qbittorrentapi import Client as qbClient
 from aria2p import API as ariaAPI, Client as ariaClient
@@ -13,6 +12,7 @@ from time import sleep, time
 from threading import Thread, Lock
 from pyrogram import Client
 from dotenv import load_dotenv
+from megasdkrestclient import MegaSdkRestClient, errors as mega_err
 
 faulthandler_enable()
 
@@ -20,7 +20,7 @@ setdefaulttimeout(600)
 
 botStartTime = time()
 
-log_Config(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[FileHandler('log.txt'), StreamHandler()],
                     level=INFO)
 
@@ -112,6 +112,8 @@ AUTHORIZED_CHATS = set()
 SUDO_USERS = set()
 AS_DOC_USERS = set()
 AS_MEDIA_USERS = set()
+EXTENTION_FILTER = set(['.torrent'])
+
 if ospath.exists('authorized_chats.txt'):
     with open('authorized_chats.txt', 'r+') as f:
         lines = f.readlines()
@@ -124,16 +126,24 @@ if ospath.exists('sudo_users.txt'):
             SUDO_USERS.add(int(line.split()[0]))
 try:
     aid = getConfig('AUTHORIZED_CHATS')
-    aid = aid.split(" ")
+    aid = aid.split(' ')
     for _id in aid:
         AUTHORIZED_CHATS.add(int(_id))
 except:
     pass
 try:
     aid = getConfig('SUDO_USERS')
-    aid = aid.split(" ")
+    aid = aid.split(' ')
     for _id in aid:
         SUDO_USERS.add(int(_id))
+except:
+    pass
+try:
+    fx = getConfig('EXTENTION_FILTER')
+    if len(fx) > 0:
+        fx = fx.split(' ')
+        for x in fx:
+            EXTENTION_FILTER.add(x.lower())
 except:
     pass
 try:
@@ -152,13 +162,13 @@ except:
     exit(1)
 
 LOGGER.info("Generating BOT_STRING_SESSION")
-app = Client('pyrogram', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, bot_token=BOT_TOKEN, no_updates=True)
+app = Client(name='pyrogram', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, bot_token=BOT_TOKEN, no_updates=True)
 
 try:
     USER_STRING_SESSION = getConfig('USER_STRING_SESSION')
     if len(USER_STRING_SESSION) == 0:
         raise KeyError
-    rss_session = Client(USER_STRING_SESSION, api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH)
+    rss_session = Client(name='rss_session', api_id=int(TELEGRAM_API), api_hash=TELEGRAM_HASH, session_string=USER_STRING_SESSION)
 except:
     USER_STRING_SESSION = None
     rss_session = None
@@ -176,9 +186,35 @@ def aria2c_init():
             aria2.remove([download], force=True, files=True)
     except Exception as e:
         log_error(f"Aria2c initializing error: {e}")
-
 Thread(target=aria2c_init).start()
-sleep(1.5)
+
+try:
+    MEGA_KEY = getConfig('MEGA_API_KEY')
+    if len(MEGA_KEY) == 0:
+        raise KeyError
+except:
+    MEGA_KEY = None
+    LOGGER.info('MEGA_API_KEY not provided!')
+if MEGA_KEY is not None:
+    # Start megasdkrest binary
+    Popen(["megasdkrest", "--apikey", MEGA_KEY])
+    sleep(3)  # Wait for the mega server to start listening
+    mega_client = MegaSdkRestClient('http://localhost:6090')
+    try:
+        MEGA_USERNAME = getConfig('MEGA_EMAIL_ID')
+        MEGA_PASSWORD = getConfig('MEGA_PASSWORD')
+        if len(MEGA_USERNAME) > 0 and len(MEGA_PASSWORD) > 0:
+            try:
+                mega_client.login(MEGA_USERNAME, MEGA_PASSWORD)
+            except mega_err.MegaSdkRestClientException as e:
+                log_error(e.message['message'])
+                exit(0)
+        else:
+            log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
+    except:
+        log_info("Mega API KEY provided but credentials not provided. Starting mega in anonymous mode!")
+else:
+    sleep(1.5)
 
 try:
     DB_URI = getConfig('DATABASE_URL')
@@ -200,22 +236,6 @@ try:
     STATUS_LIMIT = int(STATUS_LIMIT)
 except:
     STATUS_LIMIT = None
-try:
-    MEGA_API_KEY = getConfig('MEGA_API_KEY')
-    if len(MEGA_API_KEY) == 0:
-        raise KeyError
-except:
-    log_warning('MEGA API KEY not provided!')
-    MEGA_API_KEY = None
-try:
-    MEGA_EMAIL_ID = getConfig('MEGA_EMAIL_ID')
-    MEGA_PASSWORD = getConfig('MEGA_PASSWORD')
-    if len(MEGA_EMAIL_ID) == 0 or len(MEGA_PASSWORD) == 0:
-        raise KeyError
-except:
-    log_warning('MEGA Credentials not provided!')
-    MEGA_EMAIL_ID = None
-    MEGA_PASSWORD = None
 try:
     UPTOBOX_TOKEN = getConfig('UPTOBOX_TOKEN')
     if len(UPTOBOX_TOKEN) == 0:
