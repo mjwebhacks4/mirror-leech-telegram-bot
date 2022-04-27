@@ -1,5 +1,4 @@
 from signal import signal, SIGINT
-
 from os import path as ospath, remove as osremove, execl as osexecl
 from subprocess import run as srun, check_output
 from psutil import disk_usage, cpu_percent, swap_memory, cpu_count, virtual_memory, net_io_counters, boot_time
@@ -82,9 +81,8 @@ def restart(update, context):
     if Interval:
         Interval[0].cancel()
     alive.kill()
-    srun(["pkill", "-f", "gunicorn"])
     clean_all()
-    srun(["pkill", "-f", "aria2c"])
+    srun(["pkill", "-9", "-f", "gunicorn|aria2c|qbittorrent-nox|megasdkrest"])
     srun(["python3", "update.py"])
     with open(".restartmsg", "w") as f:
         f.truncate(0)
