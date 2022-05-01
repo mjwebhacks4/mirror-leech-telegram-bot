@@ -3,7 +3,6 @@ appdirs
 aria2p
 attrdict
 beautifulsoup4
-bencoding
 cfscrape
 feedparser
 flask
@@ -13,6 +12,7 @@ google-auth-oauthlib
 gunicorn
 lk21
 lxml
+megasdkrestclient
 pillow
 psutil
 psycopg2-binary
@@ -23,7 +23,6 @@ python-magic
 python-telegram-bot
 qbittorrent-api
 requests
-speedtest-cli
 six
 telegraph
 tenacity
